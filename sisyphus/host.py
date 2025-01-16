@@ -2,6 +2,7 @@ import fabric
 import logging
 import paramiko
 import os
+import re
 import shutil
 import tarfile
 import time
@@ -366,6 +367,9 @@ class Host:
             # Re-open the connection
             self.connection = fabric.Connection(user=self.user, connect_timeout=10, host=self.host)
 
+        # Transmute packages if needed
+        self.transmute(package)
+
         builddir = f"{self.topdir}{self.separator}{package}{self.separator}build"
         if self.type == LINUX_TYPE:
             pkgdir = "linux-64"
@@ -411,3 +415,21 @@ class Host:
         if failed:
             logging.warning("Packages downloaded but the build failed")
         logging.info("Done")
+
+
+    def transmute(self, package):
+        """
+        Transmute .tar.bz2 packages to .conda packages.
+        """
+        pkgdir = f"{self.topdir}{self.separator}{package}{self.separator}build{self.separator}"
+        if self.type == LINUX_TYPE:
+            pkgdir += "linux-64"
+        elif self.type == WINDOWS_TYPE:
+            pkgdir += "win-64"
+        bz2 = [p for p in self.ls(pkgdir) if p.endswith(".tar.bz2")]
+        for pkg in bz2:
+            if self.exists(re.sub("tar.bz2", "conda", f"{pkgdir}{self.separator}{pkg}")):
+                logging.info("%s already transmuted", pkg)
+            else:
+                logging.info("Transmuting %s", pkg)
+                self.run(f"{ACTIVATE} cd {pkgdir} && cph t {pkg} .conda")

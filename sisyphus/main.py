@@ -168,5 +168,20 @@ def download(host, package, destination, all, log_level):
     h.download(package, destination, all)
 
 
+@cli.command(context_settings=HELP_CONTEXT)
+@click.option("-H", "--host", required=True, help="IP or FQDN of the build host.")
+@click.option("-P", "--package", required=True, help="Name of the package being built.")
+@click.option("-l", "--log-level", type=click.Choice(["error", "warning", "info", "debug"], case_sensitive=False),
+              default="info", show_default=True, help="Logging level.")
+def transmute(host, package, log_level):
+    """
+    Transmute .tar.bz2 packages to .conda packages.
+    """
+    setup_logging(log_level)
+
+    h = Host(host)
+    h.transmute(package)
+
+
 if __name__ == "__main__":
     cli()

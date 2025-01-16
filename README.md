@@ -274,6 +274,29 @@ sisyphus upload -H <host> -P <package> -C <channel> -T <token>
 > https://github.com/anaconda-distribution/rocket-platform/actions/workflows/codesign-windows.yml
 
 
+### Transmute packages
+
+```
+> sisyphus transmute --help
+Usage: sisyphus transmute [OPTIONS]
+
+  Transmute .tar.bz2 packages to .conda packages.
+
+Options:
+  -H, --host TEXT                 IP or FQDN of the build host.  [required]
+  -P, --package TEXT              Name of the package being built.  [required]
+  -l, --log-level [error|warning|info|debug]
+                                  Logging level.  [default: info]
+  -h, --help                      Show this message and exit.
+```
+
+Transmute packages with:
+
+```
+sisyphus transmute -H <host> -P <package>
+```
+
+
 [1]: https://github.com/anaconda-distribution/rocket-platform/tree/main/machine-images#dev-instances
 [2]: https://github.com/anaconda-distribution/rocket-platform/actions/workflows/start.yml
 [3]: https://github.com/anaconda-distribution/perseverance-skills/blob/main/sections/02_Package_building/01_How_tos/Building_GPU_packages.md
