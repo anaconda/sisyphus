@@ -61,9 +61,10 @@ def prepare(host, log_level):
 @click.option("-H", "--host", required=True, help="IP or FQDN of the build host.")
 @click.option("-P", "--package", required=True, help="Name of the package to build.")
 @click.option("-B", "--branch", help="Branch to build from in the feedstock's repository.")
+@click.option("--no-watch", is_flag=True, default=False, help="Don't watch the build process after it starts.")
 @click.option("-l", "--log-level", type=click.Choice(["error", "warning", "info", "debug"], case_sensitive=False),
               default="info", show_default=True, help="Logging level.")
-def build(package, branch, host, log_level):
+def build(package, branch, host, no_watch, log_level):
     """
     Build a package on the host.
     """
@@ -78,8 +79,8 @@ def build(package, branch, host, log_level):
     # Prepare and upload the data to the host
     b = Build(package, branch)
     b.upload_data(h)
-    workdir = h.topdir + h.separator + package
-    tarfile = h.topdir + h.separator + b.tarfile
+    workdir = h.path(package)
+    tarfile = h.path(b.tarfile)
     # Start from a blank slate, untar the data and cleanup
     h.rm(workdir)
     h.untar(tarfile, workdir)
@@ -92,8 +93,9 @@ def build(package, branch, host, log_level):
     # Create a build directory, and build the package
     h.build(workdir)
 
-    # Start watching the build process
-    h.watch_build(workdir)
+    # Start watching the build process if not disabled
+    if not no_watch:
+        h.watch_build(workdir)
 
 
 @cli.command(context_settings=HELP_CONTEXT)
@@ -110,7 +112,7 @@ def watch(host, package, log_level):
 
     h = Host(host)
     if package:
-        h.watch_build(h.topdir + h.separator + package)
+        h.watch_build(h.path(package))
     else:
         h.watch_prepare()
 
@@ -124,7 +126,7 @@ def watch(host, package, log_level):
               default="info", show_default=True, help="Logging level.")
 def upload(host, package, channel, token, log_level):
     """
-    Upload built packages to anaconda.org.
+    Upload built packages on the remote host to anaconda.org.
     """
     setup_logging(log_level)
 
@@ -135,16 +137,17 @@ def upload(host, package, channel, token, log_level):
 @cli.command(context_settings=HELP_CONTEXT)
 @click.option("-H", "--host", required=True, help="IP or FQDN of the build host.")
 @click.option("-P", "--package", required=True, help="Name of the package being built.")
+@click.option("--no-wait", is_flag=True, default=False, help="Don't wait for the build to finish before printing the log.")
 @click.option("-l", "--log-level", type=click.Choice(["error", "warning", "info", "debug"], case_sensitive=False),
               default="info", show_default=True, help="Logging level.")
-def log(host, package, log_level):
+def log(host, package, no_wait, log_level):
     """
-    Print build log to standard output (does not update in real-time).
+    Print the build log to standard output (does not update in real-time).
     """
     setup_logging(log_level)
 
     h = Host(host)
-    h.log(package)
+    h.log(package, no_wait)
 
 
 @cli.command(context_settings=HELP_CONTEXT)
@@ -156,7 +159,7 @@ def log(host, package, log_level):
               default="info", show_default=True, help="Logging level.")
 def download(host, package, destination, all, log_level):
     """
-    Download built tarballs.
+    Download built packages from the remote host.
     """
     setup_logging(log_level)
 
@@ -166,6 +169,52 @@ def download(host, package, destination, all, log_level):
 
     h = Host(host)
     h.download(package, destination, all)
+
+
+@cli.command(context_settings=HELP_CONTEXT)
+@click.option("-H", "--host", required=True, help="IP or FQDN of the build host.")
+@click.option("-P", "--package", required=True, help="Name of the package being built.")
+@click.option("-l", "--log-level", type=click.Choice(["error", "warning", "info", "debug"], case_sensitive=False),
+              default="info", show_default=True, help="Logging level.")
+def transmute(host, package, log_level):
+    """
+    Transmute .tar.bz2 packages to .conda packages.
+    """
+    setup_logging(log_level)
+
+    h = Host(host)
+    h.transmute(package)
+
+
+@cli.command(context_settings=HELP_CONTEXT)
+@click.option("-H", "--host", required=True, help="IP or FQDN of the build host.")
+@click.option("-P", "--package", required=True, help="Name of the package being built.")
+@click.option("-l", "--log-level", type=click.Choice(["error", "warning", "info", "debug"], case_sensitive=False),
+              default="info", show_default=True, help="Logging level.")
+def status(host, package, log_level):
+    """
+    Print the build status.
+    """
+    setup_logging(log_level)
+
+    h = Host(host)
+    print(h.status(package))
+
+
+@cli.command(context_settings=HELP_CONTEXT)
+@click.option("-H", "--host", required=True, help="IP or FQDN of the build host.")
+@click.option("-P", "--package", required=True, help="Name of the package being built.")
+@click.option("-l", "--log-level", type=click.Choice(["error", "warning", "info", "debug"], case_sensitive=False),
+              default="info", show_default=True, help="Logging level.")
+def wait(host, package, log_level):
+    """
+    Wait for the build to finish and set exit code based on result.
+    """
+    setup_logging(log_level)
+
+    h = Host(host)
+    if not h.wait(package):
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

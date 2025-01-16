@@ -94,5 +94,5 @@ class Build:
 
         # Finally upload the data to the host
         # We're doing it from within this method because the temporary directory is very volatile
-        host.put(self.tarfile, host.topdir)
+        host.put(self.tarfile, host.sisyphus_dir)
         logging.info("Data archive uploaded")
