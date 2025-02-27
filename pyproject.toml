@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sisyphus"
-version = "0.2.0"
+version = "0.2.1"
 description = "Automate the tedious parts of building GPU (CUDA) enabled packages."
 authors = [
     {name="Jesse Noller", email="jnoller@anaconda.com"},
@@ -15,8 +15,7 @@ requires-python = ">=3.12"
 dependencies = [
     "click >= 8.1.7",
     "fabric >= 3.2.2",
-    "githubkit >= 0.12.6",
-    "requests >= 2.32.3"
+    "githubkit >= 0.12.6"
 ]
 
 [tool.setuptools.packages.find]

@@ -1,5 +1,6 @@
 import json
 import logging
+import sys
 import urllib.request
 import urllib.error
 
@@ -109,9 +110,8 @@ def stop_instance(token, id):
                 logging.error(f"Failed to get instance ID from IP {id}: {e}")
                 raise SystemExit(1)
 
-        logging.info(f"Stopping instance {id}...")
         pb.stop_instance(id)
-        logging.info("Instance stopped successfully")
+        logging.info("Instance %s stopped successfully", id)
 
     except Exception as e:
         logging.error(f"Failed to stop instance: {e}")
