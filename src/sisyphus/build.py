@@ -54,6 +54,7 @@ class Build:
         """
         Prepare the data locally instead of doing that on the host, which is inconvenient especially on Windows.
         """
+        initial_dir = os.getcwd()
         tmpdir = tempfile.TemporaryDirectory()
         self.workdir = tmpdir.name
         logging.debug("Local work directory: %s", self.workdir)
@@ -96,3 +97,5 @@ class Build:
         # We're doing it from within this method because the temporary directory is very volatile
         host.put(self.tarfile, host.sisyphus_dir)
         logging.info("Data archive uploaded")
+
+        os.chdir(initial_dir)

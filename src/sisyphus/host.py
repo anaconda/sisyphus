@@ -200,6 +200,15 @@ class Host:
         self.run(f"tar -x -f {filepath} -C {dest}")
 
 
+    def reset_connection(self, wait=0):
+        """
+        Close the connection and open a new one after optionally waiting for a while.
+        """
+        self.connection.close()
+        time.sleep(wait)
+        self.connection = fabric.Connection(user=self.user, connect_timeout=10, host=self.host)
+
+
     def prepare(self):
         """
         Prepare the remote host for building.
@@ -271,8 +280,6 @@ class Host:
         """
         Show the build process in real-time.
         """
-        # Set the wait time between updates in seconds
-        wait = 3
         # Avoid overflowing the fabric connection
         max_lines = 1000
 
@@ -298,16 +305,13 @@ class Host:
             if self.exists(self.path_join(workdir, "build.failed")):
                 logging.error("Build Failed")
                 raise SystemExit(1)
-            time.sleep(wait)
+            time.sleep(10)
 
 
     def watch_prepare(self):
         """
         Watch the prepare process.
         """
-        # Set the wait time between updates in seconds
-        wait = 3
-
         error = False
         messaged = False
         while True:
@@ -321,7 +325,7 @@ class Host:
             if not messaged:
                 logging.info("Waiting for Conda setup to complete")
                 messaged = True
-            time.sleep(wait)
+            self.reset_connection(10)
 
         if self.type == WINDOWS_TYPE:
             messaged = False
@@ -336,7 +340,7 @@ class Host:
                 if not messaged:
                     logging.info("Waiting for CUDA installation to complete")
                     messaged = True
-                time.sleep(wait)
+                self.reset_connection(30)
 
         if error:
             raise SystemExit(1)
@@ -369,9 +373,8 @@ class Host:
 
     def wait(self, package):
         """
-        Download build tarballs from the remote host.
+        Wait for the build to finish and set the return value accordingly.
         """
-        wait = 60
         while True:
             status = self.status(package)
             if status == "Complete":
@@ -384,42 +387,32 @@ class Host:
                 logging.info("Waiting for build to start")
             else:
                 logging.info("Waiting for the build to finish")
-            # Close the connection because over a very long time it can silently die
-            self.connection.close()
-            time.sleep(wait)
-            # Re-open the connection
-            self.connection = fabric.Connection(user=self.user, connect_timeout=10, host=self.host)
+            self.reset_connection(60)
 
 
-    def log(self, package, no_wait=False):
+    def log(self, package):
         """
-        Print the build log to standard output.
+        Return the build log.
         """
-        # Wait for the build to finish unless no_wait is specified
-        if not no_wait:
-            self.wait(package)
-
+        logging.info("Downloading the build log")
         logfile = self.path(package, "build.log")
         r = self.run(f"{self.cat} {logfile}")
-        print(r)
+        return r
 
 
     def download(self, package, destination, all=False):
         """
-        Download build tarballs from the remote host.
+        Download build artifacts from the remote host.
         """
-        # Wait for the build to finish
-        self.wait(package)
-
         # Transmute packages if needed
         self.transmute(package)
 
-        # Check whether there are packaes to download, if not bail out
+        # Check whether there are packages to download, if not bail out
         builddir = self.path(package, "build")
         pkgdir = self.path_join(builddir, self.pkgdir)
         files = [self.path_join(self.pkgdir, f) for f in self.ls(pkgdir) if f.endswith('.tar.bz2') or f.endswith('.conda')]
         if not files:
-            logging.warning("No packages to download")
+            logging.warning("No build artifacts to download")
             return
 
         tf_name = f"sisyphus_{package}_{self.type}.tar"
@@ -432,7 +425,7 @@ class Host:
                 logging.info("Downloading complete Sisyphus data at '%s'", self.sisyphus_dir)
                 self.run(f"cd {self.topdir} && tar -cf {tf} sisyphus")
             else:
-                logging.info("Downloading %d package tarballs in '%s'", len(files), pkgdir)
+                logging.info("Downloading %d build artifacts in '%s'", len(files), pkgdir)
                 if self.type == LINUX_TYPE:
                     self.run(f"cd {builddir} && tar -cf {tf} {" ".join(files)} 2>/dev/null || true")
                 elif self.type == WINDOWS_TYPE:
@@ -482,22 +475,18 @@ class Host:
 
     def transmute(self, package):
         """
-        Transmute .tar.bz2 packages to .conda packages.
+        Transmute .tar.bz2 packages to .conda packages and vice-versa.
         """
         pkgdir = self.path(package, "build", self.pkgdir)
-        bz2_pkgs = [p for p in self.ls(pkgdir) if p.endswith(".tar.bz2")]
-        conda_pkgs = [p for p in self.ls(pkgdir) if p.endswith(".conda")]
+        all_bz2_pkgs = [p for p in self.ls(pkgdir) if p.endswith(".tar.bz2")]
+        all_conda_pkgs = [p for p in self.ls(pkgdir) if p.endswith(".conda")]
+        bz2_pkgs = [p for p in all_bz2_pkgs if re.sub("tar.bz2$", "conda", p) not in all_conda_pkgs]
+        conda_pkgs = [p for p in all_conda_pkgs if re.sub("conda$", "tar.bz2", p) not in all_bz2_pkgs]
         for bz2_pkg in bz2_pkgs:
-            conda_pkg = re.sub("tar.bz2$", "conda", bz2_pkg)
-            if self.exists(self.path_join(pkgdir, conda_pkg)):
-                logging.info("%s already exists", conda_pkg)
-            else:
-                logging.info("Transmuting %s to .conda", bz2_pkg)
-                self.run(f"{ACTIVATE} cd {pkgdir} && cph t {bz2_pkg} .conda")
+            logging.info("Transmuting %s to .conda", bz2_pkg)
+            self.reset_connection()
+            self.run(f"{ACTIVATE} cd {pkgdir} && cph t {bz2_pkg} .conda")
         for conda_pkg in conda_pkgs:
-            bz2_pkg = re.sub("conda$", "tar.bz2", conda_pkg)
-            if self.exists(self.path_join(pkgdir, bz2_pkg)):
-                logging.info("%s already exists", bz2_pkg)
-            else:
-                logging.info("Transmuting %s to .tar.bz2", conda_pkg)
-                self.run(f"{ACTIVATE} cd {pkgdir} && cph t {conda_pkg} .tar.bz2")
+            logging.info("Transmuting %s to .tar.bz2", conda_pkg)
+            self.reset_connection()
+            self.run(f"{ACTIVATE} cd {pkgdir} && cph t {conda_pkg} .tar.bz2")

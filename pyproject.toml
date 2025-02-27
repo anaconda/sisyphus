@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sisyphus"
-version = "0.2.0"
+version = "0.2.1"
 description = "Automate the tedious parts of building GPU (CUDA) enabled packages."
 authors = [
     {name="Jesse Noller", email="jnoller@anaconda.com"},

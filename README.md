@@ -45,42 +45,14 @@ pip install -e .
 
 ### TL;DR (full example)
 
-Start a host:
-
 ```
-sisyphus start-host --linux
-```
-
-Use `--windows` for a Windows host instead.
-
-Below we'll assume the above command returned the host IP address `1.2.3.4`.
-
-Build `llama.cpp` on host `1.2.3.4`:
-
-```
-sisyphus build -H 1.2.3.4 -P llama.cpp
+export GITHUB_TOKEN=<your SSO-activated token with workflow scope>
+sisyphus auto --linux llama.cpp
 ```
 
-This will connect to the host, determine if it's Linux or Windows, prepare it to run CUDA builds, prepare the build,
-run it, then show the progress in real-time.
-
-If you lose connection to the host, which isn't unusual, you can resume watching the build process. Losing the connection will never interrupt builds.
-
-```
-sisyphus watch -H 1.2.3.4 -P llama.cpp
-```
-
-When the build completes, you can retrieve the built packages like this:
-
-```
-sisyphus download -H 1.2.3.4 -P llama.cpp
-```
-
-Stop the host when you're done:
-
-```
-sisyphus stop-host 1.2.3.4
-```
+This will create a host, build the package, download the build artifacts and log, then stop the host if the build is successful.
+Pay attention to suggestions telling you how to watch the live build process in a different terminal, or how to ssh onto the host for debugging.
+You will get a reminder to stop the host in situations where it isn't stopped automatically, and instructions on how to do so.
 
 
 ### Getting help
@@ -100,10 +72,45 @@ Get help for a specific command with:
 For example:
 
 ```
-> sisyphus build --help
+> sisyphus auto --help
 ```
 
 Commands often have options not discussed here for the sake of brevity.
+
+
+### Automated end-to-end build process
+
+Run a complete end-to-end build with:
+
+```
+> sisyphus auto [--linux|--windows] [-d <destination>] <package>
+```
+
+or
+
+```
+> sisyphus auto -H <host> [-d <destination>] <package>
+```
+
+The `auto` command combines the functionality of `start-host`, `build`, `download`, and optionally `stop-host` into a single command.
+
+If no host is provided with `-H`, it will automatically:
+1. Create a new host based on the `--linux` or `--windows` flag
+2. Prepare the host for building
+3. Build the package
+4. Download the build artifacts and log file to the specified destination (or current directory if not specified)
+5. Stop the host if the build was successful
+
+If a host is provided with `-H`, it will use that host for building and downloading but won't stop it when finished.
+
+This is ideal for unattended builds where you want to start a process and come back later to the completed artifacts.
+
+Example:
+```
+> sisyphus auto --linux -d ~/builds llama.cpp
+```
+
+This will create a Linux host, build the llama.cpp package, download all artifacts to ~/builds, and stop the host when complete.
 
 
 ### Start a new host
@@ -243,7 +250,7 @@ The output can, and probably should, be piped to a pager like `less` or be redir
 
 This step is optional. The `download` command will automatically transmute packages as needed before downloading them.
 
-Transmute built packages with:
+Transmute build artifacts with:
 
 ```
 sisyphus transmute -H <host> -P <package>
@@ -252,9 +259,9 @@ sisyphus transmute -H <host> -P <package>
 Sisyphus will automaticaly convert all `.tar.bz2` packages to `.conda` packages, and vice-versa, as needed.
 
 
-### Download built packages
+### Download build artifacts
 
-Download built packages with:
+Download build artifacts with:
 
 ```
 sisyphus download -H <host> -P <package>
