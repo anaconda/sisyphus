@@ -25,7 +25,12 @@ class Build:
         self.package = package
         logging.info("Package: %s", self.package)
 
-        self.branch = branch
+        # If the feedstock branch isn't set we need to figure out what is the default for this repository
+        if branch:
+            self.branch = branch
+        else:
+            logging.warning("Feedstock branch isn't set, using default for this repository")
+            self.branch = util.query_api(GITHUB_API + self.package + FEEDSTOCK_SUFFIX)["default_branch"]
         logging.info("Branch: %s", self.branch)
 
 
@@ -54,6 +59,7 @@ class Build:
         """
         Prepare the data locally instead of doing that on the host, which is inconvenient especially on Windows.
         """
+        initial_dir = os.getcwd()
         tmpdir = tempfile.TemporaryDirectory()
         self.workdir = tmpdir.name
         logging.debug("Local work directory: %s", self.workdir)
@@ -62,12 +68,6 @@ class Build:
         util.download(CBC_URL, os.path.join(self.workdir, CBC_YAML))
         logging.info("Downloaded '%s'", CBC_YAML)
         self.__patch_cbc()
-
-        # If the feedstock branch isn't set we need to figure out what is the default for this repository
-        if not self.branch:
-            logging.warning("Feedstock branch isn't set, using default for this repository")
-            self.branch = util.query_api(GITHUB_API + self.package + FEEDSTOCK_SUFFIX)["default_branch"]
-        logging.debug("Feedstock branch is '%s'", self.branch)
 
         # We download an archive so we don't need to have git installed and shell out to it (which is ugly)
         feedstock_url = FEEDSTOCK_PREFIX + self.package + FEEDSTOCK_SUFFIX + "/archive/refs/heads/" + self.branch + ".zip"
@@ -96,3 +96,5 @@ class Build:
         # We're doing it from within this method because the temporary directory is very volatile
         host.put(self.tarfile, host.sisyphus_dir)
         logging.info("Data archive uploaded")
+
+        os.chdir(initial_dir)
