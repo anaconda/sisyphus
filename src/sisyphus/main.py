@@ -316,7 +316,7 @@ def auto(host, package, branch, destination, linux, windows, do_not_stop_host, i
     if not destination:
         destination = os.getcwd()
     # Create the destination subdirectory for the log in case there are no build artifacts and it doesn't get created
-    local_pkgdir = os.path.join(destination, package, h.pkgdir)
+    local_pkgdir = os.path.join(os.path.abspath(destination), package, h.pkgdir)
     shutil.rmtree(local_pkgdir, ignore_errors=True)
     os.makedirs(local_pkgdir)
 
